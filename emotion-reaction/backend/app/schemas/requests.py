@@ -15,32 +15,11 @@ class TextPredictionRequest(BaseModel):
     model_name: Optional[str] = Field(default="default", description="Model name to use")
 
 
-class ImagePredictionRequest(BaseModel):
-    """Request for image emotion prediction"""
-    image_base64: str = Field(..., description="Base64-encoded image data")
-    threshold: float = Field(default=0.35, description="Emotion probability threshold", ge=0.0, le=1.0)
-    model_name: Optional[str] = Field(default="default", description="Model name to use")
-
-
-class MultiModalRequest(BaseModel):
-    """Request for multi-modal analysis"""
-    text: Optional[str] = Field(None, description="Text content", max_length=5000)
-    image_base64: Optional[str] = Field(None, description="Base64-encoded image")
-    threshold: float = Field(default=0.3, description="Emotion threshold", ge=0.0, le=1.0)
-
-
 class TextExplainRequest(BaseModel):
     """Request for text explainability"""
     text: str = Field(..., description="Text content to explain", min_length=1, max_length=5000)
     model_name: Optional[str] = Field(default="default", description="Model name to use")
     method: Optional[str] = Field(default="attention", description="Explanation method (attention, lime, shap)")
-
-
-class ImageExplainRequest(BaseModel):
-    """Request for image explainability"""
-    image_base64: str = Field(..., description="Base64-encoded image data")
-    model_name: Optional[str] = Field(default="default", description="Model name to use")
-    method: Optional[str] = Field(default="gradcam", description="Explanation method (gradcam, lime, shap)")
 
 
 class EmojiSuggestionRequest(BaseModel):
@@ -110,20 +89,6 @@ class TextPredictionResponse(BaseModel):
     modality: str
 
 
-class ImagePredictionResponse(BaseModel):
-    """Response for image emotion prediction"""
-    emotions: List[EmotionItem]
-    significant_emotions: Dict[str, float]
-    top_emotion: str
-    top_probability: float
-    sentiment: str
-    processing_time: float
-    model_used: str
-    threshold: float
-    modality: str
-    image_size: str
-
-
 class ReactionSuggestion(BaseModel):
     """Single reaction suggestion"""
     emoji: str
@@ -166,20 +131,6 @@ class SearchFilterResponse(BaseModel):
     alternative_suggestion: Optional[str] = None
 
 
-class MultiModalResponse(BaseModel):
-    """Response for multi-modal analysis"""
-    has_text: bool
-    has_image: bool
-    modalities: List[str]
-    combined_emotions: List[EmotionItem]
-    top_emotion: str
-    top_probability: float
-    fusion_method: str
-    text_analysis: Optional[Dict[str, Any]] = None
-    image_analysis: Optional[Dict[str, Any]] = None
-    reaction_suggestions: Optional[Dict[str, Any]] = None
-
-
 class EmojiSuggestionResponse(BaseModel):
     """Response for emoji suggestions"""
     text: str
@@ -206,7 +157,6 @@ class ModelInfo(BaseModel):
 class ModelsListResponse(BaseModel):
     """List of available models"""
     text_models: List[ModelInfo]
-    image_models: List[ModelInfo]
 
 
 class HealthResponse(BaseModel):

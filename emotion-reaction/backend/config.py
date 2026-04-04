@@ -28,9 +28,6 @@ class Config:
     TEXT_BATCH_SIZE = int(os.getenv("TEXT_BATCH_SIZE", "16"))
     
     # Image Model settings
-    IMAGE_MODEL_BACKBONE = os.getenv("IMAGE_MODEL_BACKBONE", "resnet50")
-    IMAGE_SIZE = int(os.getenv("IMAGE_SIZE", "224"))
-    IMAGE_BATCH_SIZE = int(os.getenv("IMAGE_BATCH_SIZE", "32"))
     
     # Training settings
     LEARNING_RATE = float(os.getenv("LEARNING_RATE", "2e-5"))
@@ -45,11 +42,9 @@ class Config:
     
     # Dataset paths
     GOEMOTIONS_DIR = DATA_DIR / "goemotions"
-    FER2013_DIR = DATA_DIR / "fer2013"
     
     # Model paths
     TEXT_MODELS_DIR = MODELS_DIR / "text"
-    IMAGE_MODELS_DIR = MODELS_DIR / "image"
     
     # CORS settings
     ALLOWED_ORIGINS = [
@@ -72,7 +67,6 @@ class Config:
     An ethical and emotionally intelligent social media platform using responsible and explainable AI.
     
     Features:
-    - Real-time emotion detection from text and images
     - Context-aware emoji reaction filtering
     - Explainable AI with SHAP and LIME
     - Proactive ethical content filtering
@@ -97,9 +91,7 @@ class Config:
         cls.DATA_DIR.mkdir(exist_ok=True)
         cls.MODELS_DIR.mkdir(exist_ok=True)
         cls.TEXT_MODELS_DIR.mkdir(parents=True, exist_ok=True)
-        cls.IMAGE_MODELS_DIR.mkdir(parents=True, exist_ok=True)
         cls.GOEMOTIONS_DIR.mkdir(parents=True, exist_ok=True)
-        cls.FER2013_DIR.mkdir(parents=True, exist_ok=True)
         (cls.BASE_DIR / "logs").mkdir(exist_ok=True)
     
     @classmethod
@@ -113,7 +105,6 @@ class Config:
             },
             "models": {
                 "text_model": cls.TEXT_MODEL_NAME,
-                "image_backbone": cls.IMAGE_MODEL_BACKBONE,
                 "device": cls.DEVICE
             },
             "paths": {
