@@ -1,4 +1,4 @@
-"""
+﻿"""
 Backend Configuration
 Centralized settings for the emotion-aware social media platform
 """
@@ -12,7 +12,7 @@ class Config:
     
     # Base paths
     BASE_DIR = Path(__file__).parent
-    ROOT_DIR = BASE_DIR.parent
+    ROOT_DIR = BASE_DIR.parent.parent
     DATA_DIR = ROOT_DIR / "data"
     MODELS_DIR = ROOT_DIR / "models"
     SHARED_DIR = ROOT_DIR / "shared"
@@ -83,7 +83,6 @@ class Config:
     
     # Logging
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
-    LOG_FILE = BASE_DIR / "logs" / "app.log"
     
     @classmethod
     def ensure_directories(cls):
@@ -92,7 +91,6 @@ class Config:
         cls.MODELS_DIR.mkdir(exist_ok=True)
         cls.TEXT_MODELS_DIR.mkdir(parents=True, exist_ok=True)
         cls.GOEMOTIONS_DIR.mkdir(parents=True, exist_ok=True)
-        (cls.BASE_DIR / "logs").mkdir(exist_ok=True)
     
     @classmethod
     def get_config_summary(cls) -> dict:

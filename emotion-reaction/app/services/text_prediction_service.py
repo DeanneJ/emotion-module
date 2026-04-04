@@ -10,9 +10,7 @@ import logging
 from pathlib import Path
 import sys
 
-# Add shared directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "shared"))
-from emotion_config import emotion_config
+from assets.configs.emotion_config import emotion_config
 
 from ..models.text_emotion_classifier import TextModelManager, TextEmotionClassifier
 from ..utils.preprocessing import TextPreprocessor, EmotionMapper

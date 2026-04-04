@@ -5,6 +5,8 @@ Uses Groq LLM with PII stripping, safety guardrails, and emotion context.
 
 import re
 import os
+from dotenv import load_dotenv
+load_dotenv()
 import logging
 from typing import List, Dict, Optional
 from groq import Groq

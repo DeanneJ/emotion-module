@@ -1,20 +1,22 @@
-﻿from fastapi import FastAPI
+﻿from dotenv import load_dotenv
+load_dotenv()
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
 from pathlib import Path
 import sys
 
-backend_dir = Path(__file__).parent
-sys.path.insert(0, str(backend_dir))
-sys.path.insert(0, str(backend_dir.parent))
+app_dir = Path(__file__).parent
+sys.path.insert(0, str(app_dir))
+sys.path.insert(0, str(app_dir.parent))
 
 from image_api import app as image_app, load_model as load_image_api_model
-from config import config
+from assets.configs.config import config
 from app.api.routes import router, set_services
 from app.services.text_prediction_service import TextPredictionService
 from app.services.filtering_service import EthicalFilteringService
-from emotion_config import emotion_config
+from assets.configs.emotion_config import emotion_config
 
 logging.basicConfig(
     level=getattr(logging, config.LOG_LEVEL),
