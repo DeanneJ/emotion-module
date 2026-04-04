@@ -1,0 +1,51 @@
+OSSN - OPEN SOURCE SOCIAL NETWORK v9.3
+- [B] cpu usage goblue frontpage because of animation #2544
+- [B] Component checkRequirments failed #2543
+
+OSSN - OPEN SOURCE SOCIAL NETWORK v9.2
+- [E] Change front-page icon color to topar color #2541
+- [B] Terms line not viisble on signup form #2540
+
+
+OSSN - OPEN SOURCE SOCIAL NETWORK v9.1
+- [E] Two reset password links shows on login page #2537
+- [B] background is loading from wrong URL #2539
+- [E] "Automatic conversion of false to array is deprecated" www\libraries\ossn.lib.admin.php (line 412) #2538
+
+OSSN - OPEN SOURCE SOCIAL NETWORK v9.0
+
+- [E] Add favicon using callback so it can be removed using component #2497
+- [E] Add a callback before page load #2496
+- [B] ossn_include_upgrade_file replaces $file variable #2495
+- [B] Some OssnGroup related warnings #2513
+- [B] ossn_notifications -> group:joinrequest orphans on group deletion #2512
+- [B] admins can not view access=1 posts if not member of group #2510
+- [E] slashes doesn't required for entites pairs search #2508
+- [B] Wheres only accept 'comparator' not 'operator' in wheres manual #2507
+- [E] Allow dynamic file names using ossn page handler #2499
+- [B] [E_WARNING] "Attempt to read property "username" on bool" in file /actions/user/login.php (line 27) #2490
+- [B] [E_WARNING] "Attempt to read property "guid" on false" in /components/OssnLikes/ossn_com.php (line 141) #2492
+- [B] [E_DEPRECATED] preg_match Passing null to parameter #2 & preg_replace(): Passing null to parameter #3 #2493
+- [B] admin users earch gives wrong pagination #2505
+- [B] Wrong locale content for OssnLocation #2509
+- [E] Load Admin dashboard graphs using xhr #2519
+- [E] Improve OssnUser::countByGender method #2517
+- [E] Remove order_by for counts #2516
+- [B] ossn_get_relationships searching only type didn't works it accepts to or from #2520
+- [B] If component folder is deleted but record exists #2491
+- [E] Allow 'other' gender type #2518
+- [B] ossn_get_relationships searching only type didn't works it accepts to or from #2520
+- [B] Duplicate count query #2523
+- [B] Some ambiguous #2524
+- [E] Move away from static margins of fullname on profile #2525
+- [B] fa-trash-o no longer exists #2526
+- [B] missing exit 2 times in actions/friend/remove #2529
+- [B] Error when deleting user message unknown colum Array #2528
+- [B] Add required ossn photos component by profile #2531
+- [E] remove isOld checking themes and components #2533
+- [E] Limit the width and height for the images upload to avoid resources overusage CWE-400 #2535
+- [B] showFileUploadError is set on top of setFile where the $this->file is not yet set funny #2536
+- [B] [E_DEPRECATED] "Implicit conversion from float 867.9315476190476 to int loses precision" in file /home/user/public_html/classes/OssnImage.php) #2489
+- [E] Show user icons for output/user imrove UI #2498
+- [E] Allow site pages in multiple langauges #2502
+- [E] Improve UI for backend and frontend OSSN 9.0 #2534
