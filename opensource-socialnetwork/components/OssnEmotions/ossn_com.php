@@ -177,7 +177,7 @@ function ossn_emotions_analyze_text($text, $threshold = 0.3) {
     if (empty(trim($text))) {
         return false;
     }
-    return ossn_emotions_api_call('/emotions/text', array(
+    return ossn_emotions_api_call('/text/enhanced', array(
         'text' => $text,
         'threshold' => $threshold
     ));

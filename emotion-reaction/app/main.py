@@ -11,7 +11,7 @@ app_dir = Path(__file__).parent
 sys.path.insert(0, str(app_dir))
 sys.path.insert(0, str(app_dir.parent))
 
-from image_api import app as image_app, load_model as load_image_api_model
+from app.api.image_api import app as image_app, load_model as load_image_api_model
 from assets.configs.config import config
 from app.api.routes import router, set_services
 from app.services.text_prediction_service import TextPredictionService
