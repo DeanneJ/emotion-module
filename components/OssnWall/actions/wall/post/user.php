@@ -1,4 +1,9 @@
 <?php
+
+#changes for lifecycle-behavioral-bot-detection start 1 (LINE NO 2 TO 6)
+require_once ossn_route()->www . "configurations/behavior_detection_config.php";
+require_once BG_GUARD_PATH;
+
 /**
  * Open Source Social Network
  *
@@ -11,6 +16,15 @@
 
 //init ossnwall
 $OssnWall = new OssnWall;
+
+//changes (LINE NO 19 TO 27)
+$user = ossn_loggedin_user();
+
+if(behaviourguard_is_restricted($user->guid,"limit_posting")){
+    ossn_trigger_message("Posting temporarily restricted due to suspicious behaviour.", 'error');
+    redirect(REF);
+    return;
+}
 
 //poster guid and owner guid is same as user is posting on its own wall
 $OssnWall->owner_guid = ossn_loggedin_user()->guid;

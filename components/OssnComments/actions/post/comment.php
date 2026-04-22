@@ -1,4 +1,9 @@
 <?php
+
+#changes for lifecycle-behavioral-bot-detection start 1 (LINE NO 2 TO 6)
+require_once ossn_route()->www . "configurations/behavior_detection_config.php";
+require_once BG_GUARD_PATH;
+
 /**
  * Open Source Social Network
  *
@@ -9,6 +14,15 @@
  * @link      https://www.opensource-socialnetwork.org/
  */
 $OssnComment = new OssnComments;
+
+//changes (LINE NO 17 TO 25)
+$user = ossn_loggedin_user();
+
+if(behaviourguard_is_restricted($user->guid,"limit_comments")){
+    redirect(REF);
+    return;
+}
+
 $image       = input('comment-attachment');
 //comment image check if is attached or not
 if(!empty($image)) {
