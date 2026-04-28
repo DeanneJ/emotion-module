@@ -171,6 +171,7 @@ CREATE TABLE `ossn_site_settings` (
   `value` text COLLATE utf8mb4_general_ci NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+
 --
 -- Dumping data for table `ossn_site_settings`
 --
@@ -209,6 +210,34 @@ CREATE TABLE `ossn_users` (
   `time_created` int NOT NULL,
   `time_updated` int NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+--
+-- Table structure for table `ossn_ng_friend_recs`
+--
+
+CREATE TABLE `ossn_ng_friend_recs` (
+  `id` bigint NOT NULL,
+  `user_guid` bigint NOT NULL,
+  `rec_guid` bigint NOT NULL,
+  `model` varchar(50) COLLATE utf8mb4_general_ci NOT NULL,
+  `shared_interests` longtext COLLATE utf8mb4_general_ci,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `similarity_score` decimal(5,2)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Table structure for table `ossn_cold_start_interests`
+--
+
+CREATE TABLE `ossn_cold_start_interests` (
+  `id` bigint NOT NULL,
+  `user_guid` bigint NOT NULL,
+  `topics` longtext COLLATE utf8mb4_general_ci NOT NULL,
+  `time_created` int NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
 
 --
 -- Indexes for dumped tables
@@ -340,6 +369,25 @@ ALTER TABLE `ossn_users`
   ADD KEY `last_name` (`last_name`);
 
 --
+-- Indexes for table `ossn_cold_start_interests`
+--
+ALTER TABLE `ossn_cold_start_interests`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `user_guid` (`user_guid`),
+  ADD KEY `time_created` (`time_created`);
+
+
+--
+-- Indexes for table `ossn_ng_friend_recs`
+--
+ALTER TABLE `ossn_ng_friend_recs`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `user_guid` (`user_guid`),
+  ADD KEY `rec_guid` (`rec_guid`),
+  ADD KEY `model` (`model`);
+
+
+--
 -- AUTO_INCREMENT for dumped tables
 --
 
@@ -403,9 +451,23 @@ ALTER TABLE `ossn_relationships`
 ALTER TABLE `ossn_site_settings`
   MODIFY `setting_id` bigint NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
 
+
 --
 -- AUTO_INCREMENT for table `ossn_users`
 --
 ALTER TABLE `ossn_users`
   MODIFY `guid` bigint NOT NULL AUTO_INCREMENT;
 COMMIT;
+
+--
+-- AUTO_INCREMENT for table `ossn_ng_friend_recs`
+--
+ALTER TABLE `ossn_ng_friend_recs`
+  MODIFY `id` bigint NOT NULL AUTO_INCREMENT;
+
+
+--
+-- AUTO_INCREMENT for table `ossn_cold_start_interests`
+--
+ALTER TABLE `ossn_cold_start_interests`
+  MODIFY `id` bigint NOT NULL AUTO_INCREMENT;

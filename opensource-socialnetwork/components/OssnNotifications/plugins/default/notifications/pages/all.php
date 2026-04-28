@@ -9,6 +9,7 @@
  * @link      https://www.opensource-socialnetwork.org/
  */
 
+
 $get = new  OssnNotifications;
 $notifications = $get->searchNotifications(array(
 					'owner_guid' => ossn_loggedin_user()->guid,	
@@ -27,7 +28,26 @@ if($notifications){
 }
 $list .= "</div>";
 $pagination = ossn_view_pagination($count);
+$extra = '';
+
+$notifications_obj = new OssnNotifications();
+$user = ossn_loggedin_user();
+$recs = $notifications_obj->getResearchFriendSuggestions($user->guid);
+
+if ($recs === null) {
+    $extra .= ossn_plugin_view('notifications/coldstart_selector');
+} elseif (!empty($recs)) {
+    $extra .= ossn_plugin_view('notifications/research_recs');
+}
+
 echo ossn_plugin_view('widget/view', array(
 				'title' => ossn_print('notifications'),
-				'contents' => $list . $pagination,
+				'contents' => $list . $pagination . $extra,
 ));
+
+
+
+
+
+
+?>

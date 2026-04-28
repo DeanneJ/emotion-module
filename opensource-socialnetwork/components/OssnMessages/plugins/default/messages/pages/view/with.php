@@ -1,14 +1,18 @@
 <script>
+	Ossn.researchInterests = <?php echo json_encode(input('interest')); ?>;
 	Ossn.SendMessage(<?php echo $params['user']->guid;?>);
-	        $(document).ready(function () {
-	            setInterval(function () {
-	                Ossn.getMessages('<?php echo $params['user']->username;?>', '<?php echo $params['user']->guid;?>');
-	                //Ossn.getRecent('<?php echo $params['user']->guid;?>');
-	            }, 5000);
-	           	Ossn.message_scrollMove(<?php echo $params['user']->guid;?>);
-	  });
+	$(document).ready(function () {
+	    setInterval(function () {
+	        Ossn.getMessages('<?php echo $params['user']->username;?>', '<?php echo $params['user']->guid;?>');
+	    }, 5000);
+	    Ossn.message_scrollMove(<?php echo $params['user']->guid;?>);
+	});
 </script>
 <div class="message-with">
+	<?php
+	// show tone selector at top of conversation
+	echo ossn_plugin_view('messages/research_tone_selector');
+	?>
 	<div class="message-inner" id="message-append-<?php echo $params['user']->guid; ?>" data-guid='<?php echo $params['user']->guid; ?>'>
 		<?php
 			if(isset($params['countm'])){

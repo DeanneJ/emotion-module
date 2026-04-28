@@ -44,10 +44,14 @@ function ossn_notifications() {
 		ossn_add_hook('notification:add', 'like:annotation', 'ossn_notificaiton_like_annotation_hook');
 		ossn_add_hook('notification:add', 'like:entity', 'ossn_notificaiton_comment_entity_hook');
 		ossn_add_hook('notification:add', 'like:object', 'ossn_notificaiton_comment_object_hook');
-
+		ossn_add_hook('notification:view', 'friend_suggestion', 'research_friend_suggestions');
 		ossn_add_hook('notification:add', 'comments:post', 'ossn_notificaiton_comments_post_hook');
 		ossn_add_hook('notification:add', 'comments:entity', 'ossn_notificaiton_comment_entity_hook');
 		ossn_add_hook('notification:add', 'comments:object', 'ossn_notificaiton_comment_object_hook');
+
+		//friend recommendation system css
+		ossn_extend_view('css/ossn.default', 'css/research_recs');
+		
 
 		//tag post with a friend, doesn't show in friend's notification #589
 		ossn_add_hook('notification:add', 'wall:friends:tag', 'ossn_notificaiton_walltag_hook');
@@ -66,18 +70,46 @@ function ossn_notifications() {
 						'url'    => ossn_site_url('notifications/all'),
 						'parent' => 'links',
 				));
+				ossn_register_action('coldstart/save_topics', __DIR__ . '/actions/coldstart/save_topics.php');
 		}
 }
+
 /**
- * Create a notification for annotation like
+ * Render a single friend recommendation as an HTML notification string
  *
- * @return void;
- * @access private
+ * @param array $rec Recommendation array with keys: username, shared_interests, rec_guid
+ * @return string HTML
  */
-function ossn_notification_annotation($callback, $type, $params) {
-		$notification = new OssnNotifications();
-		$notification->add($params['type'], $params['owner_guid'], $params['subject_guid'], $params['annotation_guid']);
+function ossn_render_friend_rec($rec) {
+		$profile_url = ossn_site_url('u/' . $rec['username']);
+		$username    = htmlspecialchars($rec['username']);
+		$interests   = htmlspecialchars($rec['shared_interests']);
+		$model       = htmlspecialchars($rec['model']);
+
+		return '
+		<div class="ossn-notification-item ossn-friend-rec-item" style="padding:10px; border-bottom:1px solid #eee; background:#f9f9ff;">
+			<div style="display:flex; align-items:center; gap:10px;">
+				<span style="font-size:22px;">🤝</span>
+				<div>
+					<div style="font-size:13px;">
+						<strong>Friend Suggestion:</strong>
+						<a href="' . $profile_url . '" style="color:#3b5998; font-weight:bold;">' . $username . '</a>
+					</div>
+					<div style="font-size:12px; color:#555; margin-top:2px;">
+						Shared interest: <em>' . $interests . '</em>
+						<span style="color:#aaa; font-size:11px; margin-left:6px;">via ' . $model . '</span>
+					</div>
+					<div style="margin-top:5px;">
+						<a href="' . $profile_url . '"
+						   style="font-size:11px; padding:3px 8px; background:#3b5998; color:#fff; border-radius:3px; text-decoration:none;">
+							View Profile
+						</a>
+					</div>
+				</div>
+			</div>
+		</div>';
 }
+
 /**
  * Notification Page
  *
@@ -92,16 +124,59 @@ function ossn_notification_page($pages) {
 		header('Content-Type: application/json');
 		switch ($page) {
 		case 'notification':
-				$get                            = new OssnNotifications();
-				$unread                         = ossn_call_hook('list', 'notification:unread', array(), true);
-				$notifications['notifications'] = $get->get(ossn_loggedin_user()->guid, $unread);
+				$get     = new OssnNotifications();
+				$user_guid = ossn_loggedin_user()->guid;
+				$unread  = ossn_call_hook('list', 'notification:unread', array(), true);
+
+				// ── Get standard OSSN notifications ───────────────────────
+				$raw_notifications = $get->get($user_guid, $unread);
+
+				// ── Get friend recommendations separately ──────────────────
+				$friend_recs = $get->getResearchFriendSuggestions($user_guid);
+
+				// ── Build final notifications array ────────────────────────
+				// Filter out any array items (old friend_suggestion arrays) from get()
+				// and only keep proper HTML strings (standard notifications)
+				$html_notifications = array();
+				if(!empty($raw_notifications)) {
+						foreach($raw_notifications as $item) {
+								if(is_string($item)) {
+										$html_notifications[] = $item;
+								}
+						}
+				}
+
+				// Render friend recs as HTML strings and append
+				if(!empty($friend_recs)) {
+						// Limit to 5 recommendations in the dropdown
+						$recs_to_show = array_slice($friend_recs, 0, 5);
+						foreach($recs_to_show as $rec) {
+								$html_notifications[] = ossn_render_friend_rec($rec);
+						}
+				}
+
+				if ($friend_recs === null) {
+					$html_notifications[] = '
+						<div class="ossn-notification-item ossn-friend-rec-item" style="padding:10px; background:#f9f9ff;">
+							<strong>Friend Suggestions:</strong>
+							<div style="margin-top:4px; font-size:12px;">
+								<a href="' . ossn_site_url('notifications/all') . '" style="color:#3b5998;">
+									Tell us your interests to get friend suggestions
+								</a>
+							</div>
+						</div>';
+				}
+
+				$notifications['notifications'] = !empty($html_notifications) ? $html_notifications : false;
 				$notifications['seeall']        = ossn_site_url('notifications/all');
-				$clearall                       = ossn_plugin_view('output/url', array(
+
+				$clearall = ossn_plugin_view('output/url', array(
 						'action' => true,
 						'href'   => ossn_site_url('action/notification/mark/allread'),
 						'class'  => 'ossn-notification-mark-read',
 						'text'   => ossn_print('ossn:notifications:mark:as:read'),
 				));
+
 				if(!empty($notifications['notifications'])) {
 						$data = ossn_plugin_view('notifications/pages/notification/notification', $notifications);
 						echo json_encode(array(
@@ -112,10 +187,11 @@ function ossn_notification_page($pages) {
 				} else {
 						echo json_encode(array(
 								'type' => 0,
-								'data' => '<div class="ossn-no-notification">' . ossn_print('ossn:notification:no:notification') . '</div>',
+								'data' => '<p>' . ossn_print('ossn:notification:no:notification') . '</p>',
 						));
 				}
 				break;
+
 		case 'friends':
 				$friends['friends'] = ossn_loggedin_user()->getFriendRequests();
 				if(!empty($friends['friends'])) {
@@ -127,7 +203,7 @@ function ossn_notification_page($pages) {
 				} else {
 						echo json_encode(array(
 								'type' => 0,
-								'data' => '<div class="ossn-no-notification">' . ossn_print('ossn:notification:no:notification') . '</div>',
+								'data' => '<p>' . ossn_print('ossn:notification:no:notification') . '</p>',
 						));
 				}
 				break;
@@ -144,10 +220,11 @@ function ossn_notification_page($pages) {
 				} else {
 						echo json_encode(array(
 								'type' => 0,
-								'data' => '<div class="ossn-no-notification">' . ossn_print('ossn:notification:no:notification') . '</div>',
+								'data' => '<p>' . ossn_print('ossn:notification:no:notification') . '</p>',
 						));
 				}
 				break;
+
 		case 'read':
 				if(!empty($pages[1])) {
 						$notification = new OssnNotifications();
@@ -167,6 +244,7 @@ function ossn_notification_page($pages) {
 				}
 				redirect();
 				break;
+
 		case 'count':
 				if(!ossn_isLoggedIn()) {
 						ossn_error_page();
@@ -194,11 +272,13 @@ function ossn_notification_page($pages) {
 						'friends'       => $friends_c,
 				));
 				break;
+
 		default:
 				ossn_error_page();
 				break;
 		}
 }
+
 /**
  * Notifications page
  *
@@ -220,13 +300,25 @@ function ossn_notifications_page($pages) {
 				);
 				$content = ossn_set_page_layout('media', $contents);
 				echo ossn_view_page($title, $content);
-
 				break;
+
 		default:
 				ossn_error_page();
 				break;
 		}
 }
+
+/**
+ * Create a notification for annotation like
+ *
+ * @return void;
+ * @access private
+ */
+function ossn_notification_annotation($callback, $type, $params) {
+		$notification = new OssnNotifications();
+		$notification->add($params['type'], $params['owner_guid'], $params['subject_guid'], $params['annotation_guid']);
+}
+
 /**
  * Create a notification for like created
  *
@@ -237,6 +329,7 @@ function ossn_notification_like($type, $event_type, $params) {
 		$notification = new OssnNotifications();
 		$notification->add($params['type'], $params['owner_guid'], $params['subject_guid'], $params['subject_guid']);
 }
+
 /**
  * Create a notification for wall tag
  *
@@ -247,20 +340,15 @@ function ossn_notification_walltag($type, $ctype, $params) {
 		$notification = new OssnNotifications();
 		if(isset($params['friends']) && is_array($params['friends'])) {
 				foreach ($params['friends'] as $friend) {
-						//Tagging friend in wall isn't working #1511
-						//user object guid instead of itemguid
 						if(!empty($params['poster_guid']) && !empty($params['object_guid']) && !empty($friend)) {
 								$notification->add('wall:friends:tag', $params['poster_guid'], $params['object_guid'], $params['object_guid'], $friend);
 						}
 				}
 		}
 }
+
 /**
  * Wall post user tag notification hook
- *
- * Tag post with a friend, doesn't show in friend's notification #589
- *
- * @return boolean
  */
 function ossn_notificaiton_walltag_hook($hook, $type, $return, $params) {
 		if(isset($params['notification_owner'])) {
@@ -268,24 +356,17 @@ function ossn_notificaiton_walltag_hook($hook, $type, $return, $params) {
 		}
 		return $params;
 }
+
 /**
  * Delete user notifiactions when user deleted
- *
- * @return void;
- * @access private
  */
 function ossn_user_notifications_delete($callback, $type, $params) {
 		$delete = new OssnNotifications();
 		$delete->deleteUserNotifications($params['entity']);
 }
+
 /**
  * Delete wall post notifiactions
- *
- * @param string  $hook Hook name
- * @param string  $type Hook type
- * @param integer $guid Post guid
- *
- * @return void
  */
 function ossn_post_notifications_delete($callback, $type, $guid) {
 		$delete = new OssnNotifications();
@@ -299,14 +380,9 @@ function ossn_post_notifications_delete($callback, $type, $guid) {
 				));
 		}
 }
+
 /**
  * Delete like notifiactions
- *
- * @param string  $callback A callback name
- * @param string  $type A callback type
- * @param Array   $guid Option values
- *
- * @return void
  */
 function ossn_like_notifications_delete($callback, $type, $vars) {
 		$delete = new OssnNotifications();
@@ -323,24 +399,16 @@ function ossn_like_notifications_delete($callback, $type, $vars) {
 				));
 		}
 }
+
 /**
  * Wall post comments/likes notification hook
- *
- * @param string $hook Hook name
- * @param string $type Hook type
- * @param array  $params Callback data
- *
- * @return array or false;
- * @access public
  */
 function ossn_notificaiton_comments_post_hook($hook, $type, $return, $params) {
 		$object              = new OssnObject();
 		$object->object_guid = $params['subject_guid'];
-
-		$object = $object->getObjectById();
+		$object              = $object->getObjectById();
 		if($object) {
 				$params['owner_guid'] = $object->owner_guid;
-
 				if($object->type !== 'user') {
 						$params['type'] = "{$params['type']}:{$object->type}:{$object->subtype}";
 						return ossn_call_hook('notification:add', $params['type'], $params, false);
@@ -349,23 +417,15 @@ function ossn_notificaiton_comments_post_hook($hook, $type, $return, $params) {
 		}
 		return false;
 }
+
 /**
  * Annotations likes notification hook
- *
- * @param string $hook Hook name
- * @param string $type Hook type
- * @param array Callback data
- *
- * @return array or false;
- * @access public
  */
 function ossn_notificaiton_like_annotation_hook($hook, $type, $return, $params) {
 		$annotation                = new OssnAnnotation();
 		$annotation->annotation_id = $params['subject_guid'];
-
-		$annotation = $annotation->getAnnotationById();
+		$annotation                = $annotation->getAnnotationById();
 		if($annotation) {
-				//[E] refine the like:annotation notification type: #1868
 				$params['type']         = "like:annotation:{$annotation->type}";
 				$params['owner_guid']   = $annotation->owner_guid;
 				$params['subject_guid'] = $annotation->subject_guid;
@@ -373,28 +433,19 @@ function ossn_notificaiton_like_annotation_hook($hook, $type, $return, $params) 
 		}
 		return false;
 }
+
 /**
  * Entity comments/likes notification hook
- *
- * @param string $hook Hook name
- * @param string $type Hook type
- * @param array Callback data
- *
- * @return array or false;
- * @access public
  */
 function ossn_notificaiton_comment_entity_hook($hook, $type, $return, $params) {
 		$entity              = new OssnEntities();
 		$entity->entity_guid = $params['subject_guid'];
-
-		$entity         = $entity->get_entity();
-		$params['type'] = "{$params['type']}:{$entity->subtype}";
-
+		$entity              = $entity->get_entity();
+		$params['type']      = "{$params['type']}:{$entity->subtype}";
 		if($entity) {
 				if($entity->type == 'user') {
 						$params['owner_guid'] = $entity->owner_guid;
 				}
-
 				if($entity->type == 'object') {
 						$object              = new OssnObject();
 						$object->object_guid = $entity->owner_guid;
@@ -407,15 +458,9 @@ function ossn_notificaiton_comment_entity_hook($hook, $type, $return, $params) {
 		}
 		return false;
 }
+
 /**
  * Object comments/likes notification hook
- *
- * @param string $hook Hook name
- * @param string $type Hook type
- * @param array Callback data
- *
- * @return array|boolean
- * @access public
  */
 function ossn_notificaiton_comment_object_hook($hook, $type, $return, $params) {
 		$object = ossn_get_object($params['subject_guid']);
@@ -428,5 +473,66 @@ function ossn_notificaiton_comment_object_hook($hook, $type, $return, $params) {
 		}
 		return false;
 }
+
 //initialize notification component
 ossn_register_callback('ossn', 'init', 'ossn_notifications');
+
+
+
+
+//It generates full recommendation cards with Add Friend and Message buttons and appends them to whatever was already being displayed.
+function research_friend_suggestions($hook, $type, $return, $params) {
+		$user = ossn_loggedin_user();
+
+		if(!$user) {
+			return $return;
+		}
+
+		$notifications = new OssnNotifications();
+		$recs = $notifications->getResearchFriendSuggestions($user->guid);
+
+		// Cold start signal - show topic selector inline
+		if ($recs === null) {
+			$output  = "<div class='research-recommendations'>";
+			$output .= "<p style='padding:10px;color:#555;font-size:13px;'>👋 ";
+			$output .= "<a href='" . ossn_site_url('notifications/all') . "' style='color:#3b5998;'>";
+			$output .= "Tell us your interests to get friend suggestions!</a></p>";
+			$output .= "</div>";
+			return $return . $output;
+		}
+
+		if (empty($recs)) {
+			return $return;
+		}
+
+		$output = "<div class='research-recommendations'>";
+		$output .= "<h3 class='rec-title'>Suggested Friends</h3>";
+
+		foreach($recs as $rec) {
+				$profile_url = ossn_site_url('u/' . $rec['username']);
+				$message_url = ossn_site_url("messages/message/" . $rec['username'] . "?interest=" . urlencode($rec['shared_interests']));
+				$username    = htmlspecialchars($rec['username']);
+				$interests   = htmlspecialchars($rec['shared_interests']);
+
+				$output .= "<div class='rec-card'>";
+
+				$output .= "<div class='rec-user'>";
+				$output .= "<b><a href='{$profile_url}' style='color:#3b5998;text-decoration:none;'>{$username}</a></b>";
+				$output .= "</div>";
+
+				$output .= "<div class='rec-explanation'>";
+				$output .= "Suggested because you both engage with: <b>{$interests}</b>";
+				$output .= "</div>";
+
+				$output .= "<div class='rec-actions'>";
+				$output .= "<a href='{$profile_url}' class='btn-addfriend'>Add Friend</a>";
+				$output .= "<a href='{$message_url}' class='btn-message'>Message</a>";
+				$output .= "</div>";
+
+				$output .= "</div>";
+		}
+
+		$output .= "</div>";
+
+		return $return . $output;
+}

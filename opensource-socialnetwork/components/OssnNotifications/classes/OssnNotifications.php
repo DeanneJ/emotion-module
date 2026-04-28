@@ -320,7 +320,7 @@ class OssnNotifications extends OssnDatabase {
 						$valid = array(
 								'guid',
 								'type',
-								'poster_guid', //fix typo #2512
+								'poser_guid',
 								'owner_guid',
 								'subject_guid',
 								'item_guid',
@@ -333,20 +333,29 @@ class OssnNotifications extends OssnDatabase {
 						if(empty($params)) {
 								return false;
 						}
-						//[B] ossn_notifications -> group:joinrequest orphans on group deletion #2512
 						foreach ($params as $key => $where) {
 								if(is_array($where)) {
-										$wheres[] = OssnDatabase::wheres($key, 'IN', $where);
+										foreach ($where as $implode) {
+												$items[] = "'{$implode}'";
+										}
+										$wheres[] = array(
+												'name'       => $key,
+												'comparator' => 'IN',
+												'value'      => $items,
+										);
 										unset($items);
 										unset($in);
 								} else {
-										$wheres[] = OssnDatabase::wheres($key, '=', $where);
+										$wheres[] = array(
+												'name'       => $key,
+												'comparator' => '=',
+												'value'      => $where,
+										);
 								}
 						}
 						if(empty($wheres)) {
 								return false;
 						}
-						
 						$vars           = array();
 						$vars['from']   = 'ossn_notifications';
 						$vars['wheres'] = $wheres;
@@ -562,4 +571,512 @@ class OssnNotifications extends OssnDatabase {
 				}
 				return false;
 		}
-}
+
+
+
+		//public, called by everyone, including the page handler for /notifications/research-friends
+		public function getResearchFriendSuggestions($user_guid, $limit = 10) {
+		$user_guid = (int)$user_guid;
+		$limit     = (int)$limit;
+
+		$url = "http://127.0.0.1:8000/recommendation/api";
+
+		$data = json_encode(array(
+			"component" => "recommendation",
+			"action" => "get",
+			"user_id" => $user_guid
+		));
+
+		$options = array(
+			'http' => array(
+				'header'  => "Content-Type: application/json\r\n",
+				'method'  => 'POST',
+				'content' => $data,
+			),
+		);
+
+		$context  = stream_context_create($options);
+		$response = @file_get_contents($url, false, $context);
+
+		if (!$response) {
+			// API failed → fallback
+			return $this->getFallbackResearchFriendSuggestions($user_guid, $limit);
+		}
+
+		$result = json_decode($response, true);
+
+		if (!empty($result['data'])) {
+			$recs = array();
+
+			foreach ($result['data'] as $row) {
+
+				$user = ossn_user_by_guid($row['rec_guid']);
+				if (!$user) continue;
+
+				// Generate category scores
+				$interests = explode(',', strtolower($row['shared_interests']));
+				$interests = array_map('trim', $interests);
+				$interests = array_filter($interests);
+
+				$score = isset($row['similarity_score']) ? round($row['similarity_score']) : 70;
+
+				
+
+				$recs[] = array(
+					'username' => $user->username,
+					'guid' => $user->guid,
+					'shared_interests' => $row['shared_interests'],
+					'explanation' => $row['shared_interests'],
+					'similarity_score' => $row['similarity_score'],
+					'source' => 'sbert_api'
+				);
+			}
+
+			if (!empty($recs)) {
+				return $recs;
+			}
+		}
+
+		// Step 2: fallback
+		$fallback = $this->getFallbackResearchFriendSuggestions($user_guid, $limit);
+		if (!empty($fallback)) {
+			return $fallback;
+		}
+
+		// Step 3: cold start
+		$cold_start_topics = $this->getColdStartInterests($user_guid);
+		if (!empty($cold_start_topics)) {
+			return $this->getColdStartRecommendations($user_guid, $cold_start_topics, $limit);
+		}
+
+		return null;
+	}
+
+
+		//Step 1: Fetch from ossn_ng_friend_recs (SBERT offline results)
+		private function getStoredResearchFriendSuggestions($user_guid, $limit = 10) {
+			$user_guid = (int)$user_guid;
+    		$limit     = (int)$limit;
+
+			$query = "SELECT rec_guid, shared_interests, model
+					FROM ossn_ng_friend_recs
+					WHERE user_guid='{$user_guid}'
+					AND model='SBERT'
+					LIMIT 100";
+
+			$this->statement($query);
+			$this->execute();
+			$rows = $this->fetch(true);
+
+			if(!$rows) {
+				return false;
+			}
+
+			$results = array();
+
+			foreach($rows as $row) {
+					 $rec_guid = (int)$row->rec_guid;
+
+					// Skip self
+					if ($rec_guid === $user_guid) {
+						continue;
+					}
+
+					$user = ossn_user_by_guid($rec_guid);
+					if (!$user) {
+						continue;
+					}
+					
+
+					$interests = explode(',', strtolower($row->shared_interests));
+					$interests = array_map('trim', $interests);
+					$interests = array_filter($interests);
+
+					$category_scores = array();
+
+					$count = count($interests);
+
+					if ($count === 1) {
+						// single interest → don't show 100%
+						$category_scores[$interests[0]] = rand(75, 90);
+					} else {
+						$base = 100;
+						$step = floor(40 / $count); // adaptive spacing
+
+						$i = 0;
+						foreach ($interests as $interest) {
+							$category_scores[$interest] = max(50, $base - ($i * $step));
+							$i++;
+						}
+					}
+
+					$results[] = array(
+						'username'         => $user->username,
+						'guid'             => $user->guid,
+						'explanation'      => $row->shared_interests,
+						'shared_interests' => $row->shared_interests,
+						'category_scores'  => $category_scores,
+						'model'            => !empty($row->model) ? $row->model : 'SBERT',
+						'source'           => 'stored'
+					);
+			}
+
+			if(empty($results)) {
+				return false;
+			}
+
+			// Limit to 3 recommendations per shared interest
+			$per_interest_limit = 3;
+			$interest_counts = array();
+			$filtered_results = array();
+
+			foreach($results as $result) {
+				$interest = $result['shared_interests'];
+				
+				if (!isset($interest_counts[$interest])) {
+					$interest_counts[$interest] = 0;
+				}
+				
+				if ($interest_counts[$interest] < $per_interest_limit) {
+					$filtered_results[] = $result;
+					$interest_counts[$interest]++;
+				}
+			}
+
+			return !empty($filtered_results) ? $filtered_results : false;
+		}
+
+		//if ossn_ng_friend_recs is empty, then we can fallback to a simple shared interest overlap based on ossn_object titles/descriptions
+		private function getFallbackResearchFriendSuggestions($user_guid, $limit = 10) {
+				$user_guid = (int)$user_guid;
+				$limit     = (int)$limit;
+
+				//Step A — Build the current user's interest profile: a set of tokens extracted from the titles/descriptions of their posts (ossn_object)
+				$current_profile = $this->getUserInterestProfile($user_guid);
+
+				if(empty($current_profile['tokens'])) {
+						return false;
+				}
+
+				// Get existing friends to exclude them
+				$existing_friends = $this->getExistingFriendGuids($user_guid);
+
+				// Get all candidate user guids from ossn_object
+				// Join with ossn_users to ensure they are real users
+				$query = "SELECT DISTINCT o.owner_guid
+						FROM ossn_object o
+						WHERE o.owner_guid != '{$user_guid}'
+						AND o.type='object'
+						AND o.subtype='post'";
+
+				$this->statement($query);
+				$this->execute();
+				$candidate_rows = $this->fetch(true);
+
+				if(!$candidate_rows) {
+						return false;
+				}
+
+				$results = array();
+
+				foreach($candidate_rows as $candidate_row) {
+						$candidate_guid = (int)$candidate_row->owner_guid;
+
+
+						// Exclude existing friends
+						if (in_array($candidate_guid, $existing_friends)) {
+							continue;
+						}
+
+						$user = ossn_user_by_guid($candidate_guid);
+						if(!$user) {
+							continue;
+						}
+
+						$candidate_profile = $this->getUserInterestProfile($candidate_guid);
+						if(empty($candidate_profile['tokens'])) {
+								continue;
+						}
+
+						// Find shared tokens
+						$shared = array_values(array_unique(
+							array_intersect($current_profile['tokens'], $candidate_profile['tokens'])
+						));
+
+						if(empty($shared)) {
+							continue;
+						}
+
+						// Compute category scores
+						$category_scores = array();
+						$total_shared = count($shared);
+
+						foreach ($shared as $token) {
+							$percentage = round((1 / $total_shared) * 100, 2);
+							$category_scores[$token] = $percentage;
+						}
+
+						// Sort categories by score
+						arsort($category_scores);
+
+						// Overall score (for ranking)
+						$score = $total_shared;
+
+						// Label (top 3 categories)
+						$label = implode(', ', array_slice(array_keys($category_scores), 0, 3));
+
+						$results[] = array(
+								'username'         => $user->username,
+								'guid'             => $user->guid,
+								'explanation'      => $label,
+								'shared_interests' => $label,
+								'category_scores'  => $category_scores,  
+								'model'            => 'Fallback',
+								'source'           => 'fallback',
+								'score'            => $score,
+						);
+				}
+
+				if(empty($results)) {
+						return false;
+				}
+				
+				// Sort by highest overlap score - Users with more shared words get a higher score and appear first.
+				usort($results, function($a, $b) {
+						return $b['score'] <=> $a['score'];
+				});
+
+				// Limit recommendations per shared interest to 4
+				$per_interest_limit = 3;
+				$interest_counts = array();
+				$filtered_results = array();
+
+				foreach($results as $result) {
+					$interest = $result['shared_interests'];
+					
+					// Count how many we've added for this interest
+					if (!isset($interest_counts[$interest])) {
+						$interest_counts[$interest] = 0;
+					}
+					
+					// Only add if we haven't reached limit for this interest
+					if ($interest_counts[$interest] < $per_interest_limit) {
+						$filtered_results[] = $result;
+						$interest_counts[$interest]++;
+					}
+				}
+
+				return !empty($filtered_results) ? $filtered_results : false;
+		}
+
+
+		//Build interest token profile for a user from ossn_object
+ 		//For each post: use title if non-empty, else use description
+		private function getUserInterestProfile($user_guid) {
+			$user_guid = (int)$user_guid;
+
+			$query = "SELECT title, description
+					FROM ossn_object
+					WHERE owner_guid='{$user_guid}'
+					AND type='object'
+          			AND subtype='post'";
+
+			$this->statement($query);
+			$this->execute();
+			$rows = $this->fetch(true);
+
+			if (empty($rows)) {
+				return array('text' => '', 'tokens' => array());
+			}
+
+			$text_parts = array();
+
+			foreach($rows as $row) {
+					$title       = trim((string)$row->title);
+					$description = trim((string)$row->description);
+
+					// Prefer title when available because in your injected data it carries category/topic
+					if(!empty($title)) {
+						$text_parts[] = $title;
+					} 
+					if(!empty($description)) {
+						$text_parts[] = $description;
+					}
+			}
+
+			if (empty($text_parts)) {
+				return array('text' => '', 'tokens' => array());
+			}
+
+			$full_text = strtolower(implode(' ', $text_parts));
+			$tokens    = $this->extractInterestTokens($full_text);
+
+			return array(
+					'text'   => $full_text,
+					'tokens' => $tokens
+			);
+		}
+
+		//Extract meaningful interest tokens from raw text
+        //Removes stopwords and short words
+		private function extractInterestTokens($text) {
+				if(empty($text)) {
+						return array();
+				}
+
+				$text = strtolower($text);
+				$text = preg_replace('/[^a-z0-9\s]+/', ' ', $text);
+				$text = preg_replace('/\s+/', ' ', $text);
+
+				$words = explode(' ', trim($text));
+
+				$stopwords = array(
+					'the','a','an','and','or','but','is','are','was','were','to','of','in','on',
+					'for','with','i','you','he','she','it','they','we','this','that','these',
+					'those','my','your','our','post','today','just','really','very','have',
+					'has','had','been','being','about','from','at','by','not','no','so','if',
+					'can','will','would','could','should','do','did','does','get','got','use',
+					'new','like','one','all','also','more','some','than','then','when','how',
+					'what','who','which','time','up','out','its','into','their','there','here',
+				);
+
+				$tokens = array();
+
+				foreach($words as $word) {
+					$word = trim($word);
+
+					if(strlen($word) < 3) {
+						continue;
+					}
+					if(in_array($word, $stopwords)) {
+						continue;
+					}
+
+					$tokens[] = $word;
+				}
+
+				return array_values(array_unique($tokens));
+		}
+
+		//Get guids of existing friends/pending requests to exclude from fallback
+		private function getExistingFriendGuids($user_guid) {
+			$user_guid = (int)$user_guid;
+
+			$query = "SELECT relation_to as other_guid FROM ossn_relationships WHERE relation_from = '{$user_guid}'
+					UNION
+					SELECT relation_from as other_guid FROM ossn_relationships WHERE relation_to = '{$user_guid}'";
+
+			$this->statement($query);
+			$this->execute();
+			$rows = $this->fetch(true);
+
+			if (empty($rows)) {
+				return array();
+			}
+
+			$guids = array();
+			foreach ($rows as $row) {
+				$guids[] = (int)$row->other_guid;
+			}
+
+			return $guids;
+		}
+
+
+		
+		//Get cold start topics for a user. Returns array of topic strings or false
+		public function getColdStartInterests($user_guid) {
+			$user_guid = (int)$user_guid;
+
+			$query = "SELECT topics FROM ossn_cold_start_interests 
+					WHERE user_guid = '{$user_guid}'";
+
+			$this->statement($query);
+			$this->execute();
+			$row = $this->fetch();
+
+			if (empty($row) || empty($row->topics)) {
+				return false;
+			}
+
+			$topics = json_decode($row->topics, true);
+			return !empty($topics) ? $topics : false;
+		}
+
+		/**
+		 * Recommend friends based on cold start topics
+		 * Finds other users whose ossn_object title matches any selected topic
+		 */
+		private function getColdStartRecommendations($user_guid, $topics, $limit = 10) {
+			$user_guid = (int)$user_guid;
+			$limit     = (int)$limit;
+
+			$existing_friends = $this->getExistingFriendGuids($user_guid);
+
+			$results = array();
+			$seen_users = array(); // Track already added users to avoid duplicates
+			$per_topic_limit = 3; // Get up to 5 recommendations per topic (3-5 will remain after dedup)
+
+			foreach ($topics as $topic) {
+				// Sanitize topic for LIKE query
+				$topic_safe = strtolower(trim($topic));
+				$topic_safe = addslashes($topic_safe); // Escape for SQL
+				$topic_wildcard = "%{$topic_safe}%";
+
+				// Find users who have posts with this topic in title or description
+				$query = "SELECT DISTINCT o.owner_guid, o.title
+						FROM ossn_object o
+						WHERE o.owner_guid != '{$user_guid}'
+						AND o.type='object'
+						AND o.subtype='post'
+						AND (LOWER(o.title) LIKE '{$topic_wildcard}' 
+							OR LOWER(o.description) LIKE '{$topic_wildcard}')
+						LIMIT 30";
+
+				$this->statement($query);
+				$this->execute();
+				$rows = $this->fetch(true);
+
+				if (empty($rows)) {
+					continue;
+				}
+
+				$topic_count = 0;
+				foreach ($rows as $row) {
+					if ($topic_count >= $per_topic_limit) {
+						break; // Stop after getting 5 for this topic
+					}
+
+					$candidate_guid = (int)$row->owner_guid;
+
+					if (in_array($candidate_guid, $existing_friends)) {
+						continue;
+					}
+
+					// Skip if already added from another topic
+					if (isset($seen_users[$candidate_guid])) {
+						continue;
+					}
+
+					$user = ossn_user_by_guid($candidate_guid);
+					if (!$user) {
+						continue;
+					}
+
+					$seen_users[$candidate_guid] = true;
+					$topic_count++;
+
+					$results[] = array(
+						'username'         => $user->username,
+						'guid'             => $candidate_guid,
+						'explanation'      => "Interested in: " . ucfirst($topic),
+						'shared_interests' => ucfirst($topic),
+						'model'            => 'ColdStart',
+						'source'           => 'coldstart',
+					);
+				}
+			}
+
+			// Return all results (will typically be 9-15 for 3 topics with 3-5 per topic)
+			return !empty($results) ? $results : false;
+		}}

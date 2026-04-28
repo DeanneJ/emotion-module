@@ -28,7 +28,7 @@
 .ossn-messages .messages-recent .messages-from .user-item .name {
 	font-weight: bold;
 	display: inline-block;
-	font-size: 13px;
+	font-size: 15px;
 }
 
 .ossn-messages .messages-recent .messages-from .message-new {
@@ -42,7 +42,7 @@
 
 .ossn-messages .messages-recent .messages-from .user-item .reply {
 	margin-top: -4px;
-	font-size: 13px;
+	font-size: 15px;
 }
 
 .ossn-notification-messages .fa-reply,
@@ -89,6 +89,7 @@
 .ossn-messages .message-with .time-created {
 	float: right;
 	margin-left: 5px;
+	font-size: 14px;
 }
 /*************************
 	Notifications
@@ -120,7 +121,7 @@
 }
 
 .ossn-notification-messages .user-item .data .name {
-	font-size: 13px;
+	font-size: 15px;
 	font-weight: bold;
 	padding: 3px;
 	margin-top: -3px;
@@ -147,6 +148,7 @@
 	white-space: nowrap;
 	overflow: hidden;
 	display: inline;
+	font-size: 14px;
 }
 
 .ossn-notification-messages .messages-from .time {
@@ -172,6 +174,7 @@
 	text-align: justify;
 	border-radius: 15px;
 	box-shadow: 0 1px 0 #c9d4bc;
+	font-size: 16px;
 }
 
 .message-box-sent {
@@ -187,6 +190,7 @@
 	border-color: #cdecb0;
 	border-radius: 15px;
 	box-shadow: 0 1px 0 #c9d4bc;
+	font-size: 16px;
 }
 
 .messages-with .widget-contents {

@@ -114,6 +114,8 @@ affectnet-app/models/affectnet/*.pth
 # OSSN config files with DB credentials
 opensource-socialnetwork/configurations/ossn.config.db.php
 opensource-socialnetwork/configurations/ossn.config.site.php
+.user.ini  
+#sayuni added .user.ini  
 
 # OSSN generated cache
 opensource-socialnetwork/cache/
@@ -131,3 +133,20 @@ ossn_data/
 # models/ directory if it contains large model files
 model/
 models/
+
+
+#sayuni added
+#do not include following files
+/components/*
+/cache
+/installation/INSTALLED
+/.htaccess
+Thumbs.db
+Desktop.ini
+DISPLAY_ERRORS
+error_log
+
+#do not ignore config files
+!/.scrutinizer.yml
+!/.travis.yml
+
