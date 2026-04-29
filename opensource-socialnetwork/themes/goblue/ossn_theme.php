@@ -23,14 +23,32 @@ function ossn_goblue_theme_init() {
 		ossn_load_css('bootstrap.min', 'admin');
 		ossn_load_css('bootstrap.min');
 
+		//load main site css
 		ossn_load_css('ossn.default');
+		// ✅ Added: Cyberbullying comment warning styles
+        ossn_new_css('comment-risk', 'plugins/default/css/comment-risk.css');
+        ossn_load_css('comment-risk');
+
+		/* ======================================================
+		 * ADDED FOR RESEARCH: Cyberbullying comment UI styles
+		 * Purpose:
+		 *  - Visual warning for mild bullying comments
+		 *  - Visual feedback for removed (flagged) comments
+		 * NOTE:
+		 *  - This does NOT modify OSSN core logic
+		 *  - Styling is injected safely via theme layer
+		 * ====================================================== */
+		
+
+		//load admin css
 		ossn_load_css('ossn.admin.default', 'admin');
 
+		//extend views
 		ossn_extend_view('ossn/admin/head', 'ossn_goblue_admin_head');
 		ossn_extend_view('ossn/site/head', 'ossn_goblue_head');
 		ossn_extend_view('js/opensource.socialnetwork', 'js/goblue');
-		ossn_extend_view('profile/newsfeed/info', 'goblue_search_bar_sidebar');
-		
+
+		//admin-only settings
 		if(ossn_isAdminLoggedin()) {
 				ossn_register_menu_item('admin/sidemenu', array(
 						'name'   => 'admin:theme:goblue',
@@ -40,27 +58,19 @@ function ossn_goblue_theme_init() {
 				));
 				ossn_register_site_settings_page('goblue', 'settings/admin/goblue');
 				ossn_register_action('goblue/settings', __THEMEDIR__ . 'actions/settings.php');
-				//[E] Allow custom logos to be saved with different file name #2334
+				// Allow custom logos reset
 				ossn_register_action('goblue/settings/logos_bgs_reset', __THEMEDIR__ . 'actions/logos_bgs_reset.php');
 		}
+
 		ossn_extend_view('ossn/site/head', 'goblue_meta_favicon');
 		ossn_extend_view('ossn/admin/head', 'goblue_meta_favicon');
 }
 
-function goblue_search_bar_sidebar(){
-		return ossn_view_form('search', array(
-								'component' => 'OssnSearch',
-								'class' => 'ossn-search',
-								'autocomplete' => 'off',
-								'method' => 'get',
-								'security_tokens' => false,
-								'action' => ossn_site_url("search"),
-		), false);	
-}
 function goblue_meta_favicon() {
 		$icon = ossn_add_cache_to_url(ossn_theme_url() . 'images/favicon.ico');
 		return "\r\n<link rel='icon' href='{$icon}' type='image/x-icon' />";
 }
+
 function ossn_goblue_set_custom_logos_bgs_setting($key, $val) {
 		$settings = ossn_goblue_get_custom_logos_bgs_setting();
 		if(!empty($key) && !empty($val)) {
@@ -74,6 +84,7 @@ function ossn_goblue_set_custom_logos_bgs_setting($key, $val) {
 		}
 		return false;
 }
+
 function ossn_goblue_get_custom_logos_bgs_setting() {
 		$config = ossn_route()->themes . 'goblue/logos_backgrounds/config.json';
 		if(file_exists($config)) {
@@ -87,6 +98,7 @@ function ossn_goblue_get_custom_logos_bgs_setting() {
 		}
 		return false;
 }
+
 function ossn_goblue_head() {
 		$head = array();
 
@@ -104,6 +116,7 @@ function ossn_goblue_head() {
 		));
 		return implode('', $head);
 }
+
 function ossn_goblue_admin_head() {
 		$head   = array();
 		$head[] = ossn_html_css(array(

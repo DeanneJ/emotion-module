@@ -9,12 +9,16 @@
  * @link      https://www.opensource-socialnetwork.org/
  */
 
+
+
 $image = $params['image'];
-//if user didn't exists not wall item #1110
+
+// if user didn't exists not wall item #1110
 if(!$params['user']){
 	error_log("Post creator doesn't exist for wallpost with guid : {$params['post']->guid}");
 	return;
 }
+
 $owner = false;
 if ($params['user']->guid !== $params['post']->owner_guid) {
 	$owner = ossn_user_by_guid($params['post']->owner_guid);
@@ -22,6 +26,17 @@ if ($params['user']->guid !== $params['post']->owner_guid) {
 		error_log("Post receiver doesn't exist for wallpost with guid : {$params['post']->guid}");
 		return;
 	}
+}
+
+// read moderation data directly from the post object
+$moderation_flag = '';
+$moderation_keywords = '';
+
+if(isset($params['post']->data) && isset($params['post']->data->moderation_flag)){
+	$moderation_flag = $params['post']->data->moderation_flag;
+}
+if(isset($params['post']->data) && isset($params['post']->data->moderation_keywords)){
+	$moderation_keywords = $params['post']->data->moderation_keywords;
 }
 ?>
 <!-- wall item -->
@@ -68,15 +83,43 @@ if ($params['user']->guid !== $params['post']->owner_guid) {
 			</div>
 		</div>
 		<div class="post-contents">
+
+			<?php if($moderation_flag === 'offensive'){ ?>
+				<div style="
+					background:#fff3cd;
+					border-left:4px solid #f39c12;
+					padding:10px 12px;
+					margin-bottom:10px;
+					border-radius:4px;
+					font-size:13px;
+					color:#856404;
+					font-weight:600;
+				">
+					⚠ Potentially Offensive Content
+
+					<div style="margin-top:5px;font-weight:400;font-size:12px;">
+						<a href="javascript:void(0)" onclick="this.nextElementSibling.style.display='block'; this.style.display='none';">
+							Click to view details
+						</a>
+
+						<div style="display:none;margin-top:6px;color:#c0392b;">
+							<?php if(!empty($moderation_keywords)){ ?>
+								Detected terms: <?php echo $moderation_keywords; ?>
+							<?php } else { ?>
+								This post was flagged by the moderation system.
+							<?php } ?>
+						</div>
+					</div>
+				</div>
+			<?php } ?>
+
 			<p><?php echo $params['text']; ?></p>
 			 <?php
 				if(!empty($params['friends'])){
 					foreach ($params['friends'] as $friend) {
 						if(!empty($friend)){
 							$user = ossn_user_by_guid($friend);
-							//[B] Wall site crash when mentioning members under certain conditions. #1865
 							if($user){
-								//here no need to use output/user/url
 								$url = $user->profileURL();
 								$friends[] = "<a href='{$url}'>{$user->fullname}</a>";
 							}

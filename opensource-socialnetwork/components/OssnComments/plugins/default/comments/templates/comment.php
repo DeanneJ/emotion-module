@@ -11,6 +11,29 @@
 ossn_trigger_callback('comment', 'load', $params['comment']);
 $comment = arrayObject($params['comment'], 'OssnComments');
 $user = ossn_user_by_guid($comment->owner_guid);
+/* ================================
+ * ✅ Cyberbullying UI (READ-ONLY)
+ * - Reads latest risk from ossn_moderation_logs
+ * - NEVER deletes comments here
+ * ================================ */
+$risk = null;
+
+if (function_exists('ossn_db')) {
+	$db = ossn_db();
+	$comment_id = (int)$comment->id;
+
+	$row = $db->select([
+		'from'     => 'ossn_moderation_logs',
+		'where'    => "comment_id='{$comment_id}'",
+		'order_by' => 'detected_at DESC',
+		'limit'    => 1
+	]);
+
+	if ($row && isset($row[0]->risk)) {
+		$risk = $row[0]->risk;   // expected: SAFE / REVIEW / FLAGGED
+	}
+}
+
 if ($comment->type == 'comments:post' || $comment->type == 'comments:entity' || $comment->type == 'comments:object') {
     $type = 'annotation';
 }
@@ -57,6 +80,11 @@ if(isset($comment->allow_comment_like) && $comment->allow_comment_like == false)
 						            echo nl2br($comment->getParam('comments:post'));
 						        }
 						echo "</span>";
+						// ✅ Mild bullying (REVIEW) → show warning under comment
+                                if ($risk === 'REVIEW') {
+	                                echo "<div class='comment-risk-warning'>⚠️ This comment may violate community guidelines.</div>";
+                                }
+
 						        $image = $comment->photoURL();
 						        if (!empty($image)) {
 						            echo "<img src='{$image}' />";
@@ -190,4 +218,4 @@ if(isset($comment->allow_comment_like) && $comment->allow_comment_like == false)
 			</div>
 		</div>
 	</div>
-</div>
+</div>  

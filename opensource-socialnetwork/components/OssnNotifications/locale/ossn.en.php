@@ -45,5 +45,15 @@ $en = array(
 	'ossn:notifications:comments:entity:file:ossn:aphoto:someone' => '%s commented on photo.',	
 	
 	'ossn:notifications:admin:settings:checkintervals:title' => 'Notification auto check time (Default 60 seconds)', 
+
+        /* ================================
+     * Cyberbullying moderation notices
+     * ================================ */
+    'ossn:notifications:cyberbullying:warning' =>
+        'Your comment may violate community guidelines. Please be respectful.',
+
+    'ossn:notifications:cyberbullying:removed' =>
+        'Your comment was removed for violating community guidelines.',
+
 );
 ossn_register_languages('en', $en); 
